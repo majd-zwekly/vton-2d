@@ -11,7 +11,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { compressImageFile, createFittingJob, getCatalog, getJobResult, getJobStatus, getStockImage } from '../server'
+import { compressImageFile, createFittingJob, getCatalog, getJobPreview, getJobResult, getJobStatus, getStockImage } from '../server'
 import './VirtualFittingRoom.css'
 
 function StockImage({ file }) {
@@ -59,6 +59,7 @@ function VirtualFittingRoom() {
   const [notice, setNotice] = useState('')
   const [catalog, setCatalog] = useState([])
   const [resultImage, setResultImage] = useState(null)
+  const [previewImage, setPreviewImage] = useState(null)
   const personInput = useRef(null)
   const shirtInput = useRef(null)
   const video = useRef(null)
@@ -184,6 +185,8 @@ function VirtualFittingRoom() {
       if (!jobId) throw new Error('الخادم لم يُرجع رقم العملية.')
       setJobStage('تم استلام الطلب، بدأت المعالجة...')
       let status = await getJobStatus(jobId)
+      let lastPreview = 0
+      setPreviewImage(null)
       while (!['done', 'completed', 'error', 'failed'].includes(status.status)) {
         const currentStep = Number(status.step_current ?? status.current_step ?? status.step ?? status.steps_done)
         const totalSteps = Number(status.step_total ?? status.total ?? status.total_steps ?? status.steps)
@@ -198,6 +201,12 @@ function VirtualFittingRoom() {
         } else if (status.status) {
           setJobStage(status.status === 'queued' ? 'في قائمة الانتظار...' : 'جاري تجهيز الإطلالة...')
         }
+        if (status.preview_version && status.preview_version !== lastPreview) {
+          lastPreview = status.preview_version
+          getJobPreview(jobId, lastPreview)
+            .then((blob) => setPreviewImage((old) => { if (old) URL.revokeObjectURL(old); return URL.createObjectURL(blob) }))
+            .catch(() => {})
+        }
         await new Promise((resolve) => window.setTimeout(resolve, 500))
         status = await getJobStatus(jobId)
       }
@@ -205,6 +214,7 @@ function VirtualFittingRoom() {
       setJobStage('اكتملت المعالجة، جاري تحميل النتيجة...')
       const blob = await getJobResult(jobId)
       setResultImage(URL.createObjectURL(blob))
+      setPreviewImage(null)
       setJobStep((previous) => ({ current: previous.total || previous.current, total: previous.total }))
       setJobStage('اكتملت التجربة بنجاح')
       setNotice('تم تجهيز إطلالتك بنجاح.')
@@ -294,6 +304,7 @@ function VirtualFittingRoom() {
         {isProcessing && <div className="job-progress" role="status" aria-live="polite">
           <div className="progress-heading"><span>{jobStage}</span><strong>الخطوة {jobStep.current} من {jobStep.total || '...'}</strong></div>
         </div>}
+        {isProcessing && previewImage && <div className="result-preview live"><h3>معاينة مباشرة</h3><img src={previewImage} alt="معاينة أثناء المعالجة" /></div>}
         {notice && <p className="notice" role="status">{notice}</p>}
         {resultImage && <div className="result-preview"><h3>نتيجة التجربة</h3><img src={resultImage} alt="نتيجة تجربة الملابس" /></div>}
       </section>
