@@ -33,7 +33,7 @@ function VirtualFittingRoom() {
   const [isCameraOpen, setIsCameraOpen] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [qualityMode, setQualityMode] = useState('quality')
+  const [qualityMode, setQualityMode] = useState('fast')
   const [jobStep, setJobStep] = useState({ current: 0, total: 0 })
   const [jobStage, setJobStage] = useState('')
   const [notice, setNotice] = useState('')
@@ -53,6 +53,18 @@ function VirtualFittingRoom() {
       })
       .catch(() => setNotice('تعذر تحميل قطع الملابس من الخادم المحلي. يمكنك رفع صورة ملابس يدويًا.'))
   }, [])
+
+  const translateStage = (stage) => {
+    const known = {
+      queued: 'في قائمة الانتظار...',
+      'loading the model': 'جاري تحميل النموذج...',
+      preprocess: 'جاري تحليل الصور...',
+      sampling: 'جاري توليد الإطلالة...',
+    }
+    if (known[stage]) return known[stage]
+    if (stage.startsWith('waiting for')) return 'بانتظار جهاز المعالجة...'
+    return 'جاري تجهيز الإطلالة...'
+  }
 
   const readImage = (file, setter) => {
     if (!file?.type.startsWith('image/')) {
@@ -154,7 +166,7 @@ function VirtualFittingRoom() {
       let status = await getJobStatus(jobId)
       while (!['done', 'completed', 'error', 'failed'].includes(status.status)) {
         const currentStep = Number(status.step_current ?? status.current_step ?? status.step ?? status.steps_done)
-        const totalSteps = Number(status.step_total ?? status.total_steps ?? status.steps)
+        const totalSteps = Number(status.step_total ?? status.total ?? status.total_steps ?? status.steps)
         if (Number.isFinite(currentStep)) {
           setJobStep((previous) => ({
             current: currentStep,
@@ -162,7 +174,7 @@ function VirtualFittingRoom() {
           }))
         }
         if (status.stage) {
-          setJobStage(status.stage)
+          setJobStage(translateStage(status.stage))
         } else if (status.status) {
           setJobStage(status.status === 'queued' ? 'في قائمة الانتظار...' : 'جاري تجهيز الإطلالة...')
         }
