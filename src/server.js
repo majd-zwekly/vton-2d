@@ -1,4 +1,4 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://deskwork-scalded-reshape.ngrok-free.dev').replace(/\/$/, '')
+const API_BASE_URL = ('https://deskwork-scalded-reshape.ngrok-free.dev').replace(/\/$/, '')
 
 function apiUrl(path) {
   const separator = path.includes('?') ? '&' : '?'
