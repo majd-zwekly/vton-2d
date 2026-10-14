@@ -91,6 +91,13 @@ export async function getJobStatus(jobId) {
   return request(`/api/jobs/${encodeURIComponent(jobId)}`)
 }
 
+// Intermediate denoising preview (blob, since <img src> cannot send the ngrok header).
+export async function getJobPreview(jobId, version) {
+  const response = await apiFetch(`/api/jobs/${encodeURIComponent(jobId)}/preview?v=${version}`)
+  if (!response.ok) throw new Error(`preview ${response.status}`)
+  return response.blob()
+}
+
 export async function getJobResult(jobId) {
   const response = await apiFetch(`/api/jobs/${encodeURIComponent(jobId)}/result`)
   if (!response.ok) {
