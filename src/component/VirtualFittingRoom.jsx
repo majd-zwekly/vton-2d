@@ -14,6 +14,26 @@ import {
 import { compressImageFile, createFittingJob, getCatalog, getJobResult, getJobStatus, getStockImage } from '../server'
 import './VirtualFittingRoom.css'
 
+function StockImage({ file }) {
+  const [src, setSrc] = useState('')
+  useEffect(() => {
+    let url = ''
+    let cancelled = false
+    getStockImage(file)
+      .then((objectUrl) => {
+        url = objectUrl
+        if (cancelled) URL.revokeObjectURL(objectUrl)
+        else setSrc(objectUrl)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [file])
+  return src ? <img src={src} alt="" /> : null
+}
+
 const shirts = [
   { id: 'classic', name: 'القميص الكلاسيكي', color: 'أسود', tone: 'black' },
   { id: 'scarlet', name: 'بلوزة سكارليت', color: 'أحمر', tone: 'red' },
@@ -254,7 +274,7 @@ function VirtualFittingRoom() {
           <div className="panel">
             <div className="panel-title"><span className="step-number">02</span><div><h3>القطعة</h3><p>اختر من مجموعتنا أو ارفع قطعة خاصة</p></div></div>
             <div className="shirt-options">
-              {(catalog.length ? catalog : shirts).map((shirt) => <button key={shirt.id} type="button" className={`shirt-option ${selectedShirt === shirt.id ? 'selected' : ''}`} onClick={() => { setSelectedShirt(shirt.id); setShirtImage(null) }}><span className={`shirt-preview ${shirt.tone || 'black'}`}>{shirt.file ? <img src={getStockImage(shirt.file)} alt="" /> : <Shirt size={34} />}</span><span><strong>{shirt.title || shirt.name}</strong><small>{shirt.category || shirt.color}</small></span>{selectedShirt === shirt.id && <Check className="option-check" size={17} />}</button>)}
+              {(catalog.length ? catalog : shirts).map((shirt) => <button key={shirt.id} type="button" className={`shirt-option ${selectedShirt === shirt.id ? 'selected' : ''}`} onClick={() => { setSelectedShirt(shirt.id); setShirtImage(null) }}><span className={`shirt-preview ${shirt.tone || 'black'}`}>{shirt.file ? <StockImage file={shirt.file} /> : <Shirt size={34} />}</span><span><strong>{shirt.title || shirt.name}</strong><small>{shirt.category || shirt.color}</small></span>{selectedShirt === shirt.id && <Check className="option-check" size={17} />}</button>)}
             </div>
             <button className="upload-shirt" type="button" onClick={() => shirtInput.current?.click()}><ImagePlus size={18} /> رفع صورة بلوزة خاصة</button>
             <input ref={shirtInput} type="file" accept="image/*" hidden onChange={(event) => readImage(event.target.files[0], setShirtImage)} />

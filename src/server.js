@@ -1,9 +1,15 @@
 // Override with VITE_API_URL (e.g. in Vercel env vars) when the tunnel URL changes.
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'https://deskwork-scalded-reshape.ngrok-free.dev').replace(/\/$/, '')
 
+// ngrok's free-tier interstitial is only skipped by this request HEADER (the query param is ignored by browsers).
+const NGROK_HEADERS = { 'ngrok-skip-browser-warning': '1' }
+
 function apiUrl(path) {
-  const separator = path.includes('?') ? '&' : '?'
-  return `${API_BASE_URL}${path}${separator}ngrok-skip-browser-warning=true`
+  return `${API_BASE_URL}${path}`
+}
+
+function apiFetch(path, options = {}) {
+  return fetch(apiUrl(path), { ...options, headers: { ...NGROK_HEADERS, ...options.headers } })
 }
 
 export async function compressImageFile(file, { maxDimension = 1400, quality = 0.78 } = {}) {
@@ -35,9 +41,7 @@ export async function compressImageFile(file, { maxDimension = 1400, quality = 0
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(apiUrl(path), {
-    ...options,
-  })
+  const response = await apiFetch(path, options)
   const contentType = response.headers.get('content-type') || ''
   const body = contentType.includes('application/json')
     ? await response.json()
@@ -61,8 +65,11 @@ export async function getCatalog() {
   return request('/api/catalog')
 }
 
-export function getStockImage(file, thumbnail = 220) {
-  return apiUrl(`/stock/${encodeURIComponent(file)}?thumb=${thumbnail}`)
+// <img src> cannot send headers, so stock images are fetched as blobs and shown via object URLs.
+export async function getStockImage(file, thumbnail = 220) {
+  const response = await apiFetch(`/stock/${encodeURIComponent(file)}?thumb=${thumbnail}`)
+  if (!response.ok) throw new Error(`stock image ${response.status}`)
+  return URL.createObjectURL(await response.blob())
 }
 
 export async function createFittingJob({ personFile, garmentId, garmentFile, category = 'tops', garmentType = 'flat-lay', mode = 'quality' }) {
@@ -85,7 +92,7 @@ export async function getJobStatus(jobId) {
 }
 
 export async function getJobResult(jobId) {
-  const response = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(jobId)}/result`))
+  const response = await apiFetch(`/api/jobs/${encodeURIComponent(jobId)}/result`)
   if (!response.ok) {
     const body = await response.text()
     throw new Error(body || `تعذر تحميل النتيجة (${response.status})`)
